@@ -63,6 +63,7 @@ module Mutable =
         let _roughness = MTextureMappedValue.Create(__initial.roughness)
         let _albedo = MTextureMappedValue.Create(__initial.albedo)
         let _normal = MTextureMappedValue.Create(__initial.normal)
+        let _opacity = MTextureMappedValue.Create(__initial.opacity)
         let _albedoFactor = ResetMod.Create(__initial.albedoFactor)
         let _normalMapStrenght = ResetMod.Create(__initial.normalMapStrenght)
         let _discard = ResetMod.Create(__initial.discard)
@@ -72,6 +73,7 @@ module Mutable =
         member x.roughness = _roughness
         member x.albedo = _albedo
         member x.normal = _normal
+        member x.opacity = _opacity
         member x.albedoFactor = _albedoFactor :> IMod<_>
         member x.normalMapStrenght = _normalMapStrenght :> IMod<_>
         member x.discard = _discard :> IMod<_>
@@ -86,6 +88,7 @@ module Mutable =
                 MTextureMappedValue.Update(_roughness, v.roughness)
                 MTextureMappedValue.Update(_albedo, v.albedo)
                 MTextureMappedValue.Update(_normal, v.normal)
+                MTextureMappedValue.Update(_opacity, v.opacity)
                 ResetMod.Update(_albedoFactor,v.albedoFactor)
                 ResetMod.Update(_normalMapStrenght,v.normalMapStrenght)
                 ResetMod.Update(_discard,v.discard)
@@ -129,6 +132,12 @@ module Mutable =
                     override x.Get(r) = r.normal
                     override x.Set(r,v) = { r with normal = v }
                     override x.Update(r,f) = { r with normal = f r.normal }
+                }
+            let opacity =
+                { new Lens<Aardvark_test.Model.PBRMaterial, Aardvark_test.Model.TextureMappedValue>() with
+                    override x.Get(r) = r.opacity
+                    override x.Set(r,v) = { r with opacity = v }
+                    override x.Update(r,f) = { r with opacity = f r.opacity }
                 }
             let albedoFactor =
                 { new Lens<Aardvark_test.Model.PBRMaterial, System.Double>() with

@@ -46,6 +46,13 @@ module material =
                 |> Option.defaultValue (onPixTex C3f.White)
             Mod.bind (fun (m : MPBRMaterial)-> m.roughness.fileName |> Mod.map loadTex)  x.material :> IMod
 
+        member x.OpacityMap =
+            let loadTex f =
+                f
+                |> Option.map (fun f -> FileTexture(f, TextureParams.empty) :> ITexture)
+                |> Option.defaultValue (onPixTex C3f.White)
+            Mod.bind (fun (m : MPBRMaterial)-> m.opacity.fileName |> Mod.map loadTex)  x.material :> IMod
+
         member x.AlbedoMap =
             adaptive {
                 let! m = x.material 
@@ -91,6 +98,8 @@ module material =
                 | "Discard" -> Some (Mod.bind (fun (m : MPBRMaterial)-> m.discard) x.material :> IMod)
                 | "DisplacmentStrength" -> Some (Mod.bind (fun (m : MPBRMaterial)-> m.displacment.factor) x.material :> IMod)
                 | "DisplacmentMap" -> Some x.DisplacemntMap 
+                | "Opacity" -> Some (Mod.bind (fun (m : MPBRMaterial)-> m.opacity.factor) x.material :> IMod)
+                | "OpacityMap" -> Some x.OpacityMap 
                 | _ -> x.importedMaterial.TryGetUniform(s, sem)
 
             member x.Dispose() = x.importedMaterial.Dispose()
@@ -127,6 +136,10 @@ module material =
             factor = 1.0
         }
         normal = {
+            fileName = None
+            factor = 1.0
+        }
+        opacity = {
             fileName = None
             factor = 1.0
         }
@@ -195,6 +208,7 @@ module materialControl =
         | SetNormalMapStrength of float
         | SetDiscard 
         | SetDisplacment of textureMappedValueControl.Message
+        | SetOpacity of textureMappedValueControl.Message
 
     let update  (m : PBRMaterial) (msg : Message)  =
         match msg with
@@ -206,6 +220,7 @@ module materialControl =
         | SetNormalMapStrength s -> { m with  normalMapStrenght = s}
         | SetDiscard -> { m with  discard = not m.discard}
         | SetDisplacment msg' -> { m with  displacment = textureMappedValueControl.update m.displacment msg'}
+        | SetOpacity msg' -> { m with  opacity = textureMappedValueControl.update m.opacity msg'}
 
     let view (m : MPBRMaterial) =
         let numInput name changed state  = labeledFloatInput name 0.0 1.0 0.01 changed state
@@ -215,6 +230,7 @@ module materialControl =
             textureMappedValueControl.view textureMappedValueControl.Linear "Albedo" 0.0 1.0 0.01 m.albedo  |> UI.map SetAlbedo
             textureMappedValueControl.view textureMappedValueControl.Linear "Normal Map" 0.0 1.0 0.01 m.normal  |> UI.map SetNormal
             textureMappedValueControl.view textureMappedValueControl.Linear "Displacement" 0.0 1.0 0.01 m.displacment  |> UI.map SetDisplacment
+            textureMappedValueControl.view textureMappedValueControl.Linear "Opacity" 0.0 1.0 0.01 m.opacity  |> UI.map SetOpacity
             Html.table [                        
                  tr [] [ td [] [text "Discard"]; td [style "width: 70%;"] [Html.SemUi.toggleBox  m.discard SetDiscard ]]
             ]   

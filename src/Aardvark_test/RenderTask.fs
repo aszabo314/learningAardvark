@@ -386,5 +386,20 @@ module RenderTask =
     let renderToColorCube (size : IMod<int>) (tasks : CubeSide -> IRenderTask) =
         (fun _ -> tasks) |> renderToColorCubeMip size 1 
 
+    let renderSemantics' (sem : Set<Symbol>) (size : IMod<V2i>) (task : IRenderTask) =
+        let runtime = task.Runtime.Value
+        let signature = task.FramebufferSignature.Value
+
+        let clearColors = 
+            sem |> Set.toList |> List.filter (fun s -> s <> DefaultSemantic.Depth) |> List.map (fun s -> s,C4f(0.0,0.0,0.0,0.0))
+        let clear = runtime.CompileClear(signature, ~~clearColors, ~~1.0)
+        let fbo = runtime.CreateFramebuffer(signature, sem, size)
+
+        let res = new SequentialRenderTask([|clear; task|]) |> RenderTask.renderTo fbo
+        sem |> Seq.map (fun k -> k, RenderTask.getResult k res) |> Map.ofSeq
+
+    let renderToColorClearAlpha (size : IMod<V2i>) (task : IRenderTask) =
+        task |> renderSemantics' (Set.singleton DefaultSemantic.Colors) size |> Map.find DefaultSemantic.Colors
+
  
 

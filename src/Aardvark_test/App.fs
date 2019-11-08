@@ -301,10 +301,9 @@ module App =
                 yield pass0
             }
 
-
         //additive blending
         let mutable blendMode = BlendMode(true)
-        blendMode.AlphaOperation <- BlendOperation.Add
+        blendMode.AlphaOperation <- BlendOperation.Maximum
         blendMode.Operation <- BlendOperation.Add
         blendMode.SourceFactor <- BlendFactor.One
         blendMode.SourceAlphaFactor <- BlendFactor.One
@@ -317,7 +316,7 @@ module App =
             ]
 
         //render linear HDR output
-        let  output = 
+        let  outputOpage = 
             Sg.set lightSgs
             |> Sg.blendMode (blendMode |> Mod.constant)
             |> Sg.uniform "AmbientIntensity" m.enviorment.ambientLightIntensity
@@ -330,13 +329,103 @@ module App =
             |> Sg.compile runtime signature
             |> RenderTask.renderToColor size    
 
-        //tone mapping and gamma correction
+        // lightning pass per light
+        let lightTranspSgs = 
+            let lightSet =
+                m.lights
+                |> AMap.toASet
+            aset  {
+                for  (i,l) in lightSet do
+                    let! l' = l
+                    let pass = 
+                        match l' with 
+                        |MDirectionalLight dl ->
+                            Mod.map (fun (d : DirectionalLightData)->
+                                if d.castsShadow then
+                                    scene
+                                    |> Sg.uniform "Light" (SLEUniform.uniformLight l)
+                                    |> Sg.texture (Sym.ofString "ShadowMap") (shadowMapTex i)
+                                    |> Sg.uniform "LightViewMatrix" (lightViewMatrix  i |> Mod.map(fun (v,p)  -> v * p))
+                                    |> Sg.shader {
+                                        do! DefaultSurfaces.trafo
+                                        do! displacemntMap.displacementMap
+                                        do! DefaultSurfaces.vertexColor
+                                        do! DefaultSurfaces.diffuseTexture 
+                                        do! NormalMap.normalMap 
+                                        do! shadersOIT.fragmentData 
+                                        do! shadersOIT.lightingOIT
+                                       // do! PBR.shadowDeferred
+                                        }
+                                else
+                                    scene
+                                    |> Sg.adapter
+                                    |> Sg.uniform "Light" (SLEUniform.uniformLight l)
+                                    |> Sg.shader {
+                                        do! DefaultSurfaces.trafo
+                                        do! displacemntMap.displacementMap
+                                        do! DefaultSurfaces.vertexColor
+                                        do! DefaultSurfaces.diffuseTexture 
+                                        do! NormalMap.normalMap 
+                                        do! shadersOIT.fragmentData 
+                                        do! shadersOIT.lightingOIT
+                                        } ) dl
+                            |> Sg.dynamic                                
+                        |MPointLight _ ->
+                            scene
+                            |> Sg.adapter
+                            |> Sg.uniform "Light" (SLEUniform.uniformLight l)
+                            |> Sg.shader {
+                                    do! DefaultSurfaces.trafo
+                                    do! displacemntMap.displacementMap
+                                    do! DefaultSurfaces.vertexColor
+                                    do! DefaultSurfaces.diffuseTexture 
+                                    do! NormalMap.normalMap 
+                                    do! shadersOIT.fragmentData 
+                                    do! shadersOIT.lightingOIT
+                                }
+                    yield  pass
+                let pass0 =
+                    scene
+                    |> Sg.adapter
+                    |> Sg.texture (Sym.ofString "DiffuseIrradiance") diffuseIrradianceMap
+                    |> Sg.texture (Sym.ofString "PrefilteredSpecColor") prefilterdSpecColor
+                    |> Sg.texture (Sym.ofString "BRDFLtu") bRDFLtu
+                    |> Sg.texture (Sym.ofString "AmbientOcclusion") ambientOcclusion
+                    |> Sg.shader {
+                        do! DefaultSurfaces.trafo
+                        do! displacemntMap.displacementMap
+                        do! DefaultSurfaces.vertexColor
+                        do! DefaultSurfaces.diffuseTexture 
+                        do! NormalMap.normalMap 
+                        do! shadersOIT.fragmentData 
+                        do! shadersOIT.abientOIT
+                        }
+                yield pass0
+            }
+
+        let  outputTransparent= 
+            Sg.set lightTranspSgs
+            |> Sg.blendMode (blendMode |> Mod.constant)
+            |> Sg.cullMode (CullMode.Back |> Mod.constant) 
+            //|> Sg.depthTest (Mod.constant DepthTestMode.Always)
+            |> Sg.uniform "AmbientIntensity" m.enviorment.ambientLightIntensity
+            |> Sg.uniform "CameraLocation" (view |> Mod.map (fun t -> t.Backward.C3.XYZ))
+            |> Sg.texture (Sym.ofString "Background") outputOpage
+            |> Sg.texture ( DefaultSemantic.Depth) (Map.find DefaultSemantic.Depth gBuffer)
+            |> Sg.uniform "LightPasses" (AMap.keys m.lights |> ASet.count |>  Mod.map ((+) 1))
+            |> Sg.viewTrafo (view)
+            |> Sg.projTrafo (proj)
+            |> Sg.compile runtime signature
+            |> RenderTask.renderToColorClearAlpha size    
+
+         //tone mapping and gamma correction
         Sg.fullScreenQuad
         |> Sg.adapter
-        |> Sg.texture DefaultSemantic.DiffuseColorTexture output
+        |> Sg.texture (Sym.ofString "Background") outputOpage
+        |> Sg.texture (Sym.ofString "Foreground") outputTransparent
         |> Sg.uniform "Expousure" m.expousure
         |> Sg.shader {
-            do! DefaultSurfaces.diffuseTexture
+            do! shadersOIT.compose
             do! PBR.gammaCorrection
             }    
         |> Sg.compile runtime outputSignature    

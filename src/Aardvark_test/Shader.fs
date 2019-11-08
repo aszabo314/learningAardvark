@@ -30,7 +30,7 @@ module PBR =
 
     //Note: Do not use ' in variabel names for shader code,  it will lead  to an error
 
-    let private diffuseIrradianceSampler =
+    let  diffuseIrradianceSampler =
         samplerCube {
             texture uniform?DiffuseIrradiance
             filter Filter.MinMagMipLinear
@@ -38,7 +38,7 @@ module PBR =
             addressV WrapMode.Wrap
         }
 
-    let private prefilteredSpecColorSampler =
+    let  prefilteredSpecColorSampler =
         samplerCube {
             texture uniform?PrefilteredSpecColor
             filter Filter.MinMagMipLinear
@@ -46,7 +46,7 @@ module PBR =
             addressV WrapMode.Wrap
         }
 
-    let private samplerBRDFLtu =
+    let  samplerBRDFLtu =
         sampler2d {
             texture uniform?BRDFLtu
             filter Filter.MinMagMipLinear
@@ -248,7 +248,7 @@ module PBR =
         let brdf = samplerBRDFLtu.Sample(V2d(nDotV, roughness)).XY
         let specular = prefilteredColor * (kSA * brdf.X + brdf.Y)
 
-        let ambient = kdA * diffuse + specular//todo:  abient occlusion
+        let ambient = kdA * diffuse + specular
         let ambientIntensity = uniform.AmbientIntensity
         ambient * ambientIntensity
 
@@ -610,6 +610,8 @@ module  displacemntMap =
 
         member x.AlbedoFactor : float = x?AlbedoFactor
 
+        member x.Opacity : float = x?Opacity
+
         member x.Discard : bool =  x?Discard
 
         member x.SkyMapIntensity : float =  x?SkyMapIntensity
@@ -667,11 +669,20 @@ module  displacemntMap =
             addressV WrapMode.Wrap
         }
    
+    let private opacitySampler =
+        sampler2d {
+            texture uniform?OpacityMap
+            filter Filter.MinMagMipLinear
+            addressU WrapMode.Wrap
+            addressV WrapMode.Wrap
+        }
+
     let gBufferShader (vert : Vertex) =
         fragment {
             let gamma  = 2.2
             
-            if uniform.Discard then
+            let opacity = uniform.Opacity * opacitySampler.Sample(vert.tc).X
+            if uniform.Discard || opacity < 0.99 then
                 discard()
             let albedo = pow (vert.c.XYZ * uniform.AlbedoFactor) (V3d(gamma))
             let metallic = uniform.Metallic * metallicSampler.Sample(vert.tc).X
