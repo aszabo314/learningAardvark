@@ -206,7 +206,7 @@ module App =
 
         blurredAmbientOc
 
-    let compileDeffered(outputSignature : IFramebufferSignature) (view : IMod<Trafo3d>) (proj : IMod<Trafo3d>) (size : IMod<V2i>) (scene : ISg<'msg>) (m : MModel) =
+    let compileDeferred(outputSignature : IFramebufferSignature) (view : IMod<Trafo3d>) (proj : IMod<Trafo3d>) (size : IMod<V2i>) (scene : ISg<'msg>) (m : MModel) =
         let size = size |> Mod.map (fun s -> V2i(max 1 s.X, max 1 s.Y))
 
         let runtime = outputSignature.Runtime
@@ -407,7 +407,7 @@ module App =
             Sg.set lightTranspSgs
             |> Sg.blendMode (blendMode |> Mod.constant)
             |> Sg.cullMode (CullMode.Back |> Mod.constant) 
-            //|> Sg.depthTest (Mod.constant DepthTestMode.Always)
+            |> Sg.depthTest (Mod.constant DepthTestMode.Less)
             |> Sg.uniform "AmbientIntensity" m.enviorment.ambientLightIntensity
             |> Sg.uniform "CameraLocation" (view |> Mod.map (fun t -> t.Backward.C3.XYZ))
             |> Sg.texture (Sym.ofString "Background") outputOpage
@@ -432,7 +432,7 @@ module App =
 
     let getScene (m : MModel) (sg : ISg<'msg>) =
         Aardvark.Service.Scene.custom (fun values ->
-            compileDeffered values.signature values.viewTrafo values.projTrafo values.size sg m
+            compileDeferred values.signature values.viewTrafo values.projTrafo values.size sg m
         )
 
     let deferrdRenderControl (att : list<string * AttributeValue<Message>>) (s : MCameraControllerState) (frustum : Frustum) (sg : ISg<'msg>) (m : MModel) =

@@ -124,14 +124,14 @@ module shadersOIT =
                 let kD = (1.0 - metallic) * (V3d.III - kS)
                 let diffuse = kD * albedo / Math.PI * radiance * nDotL
 
-                let diffuseBlended = background//Lerp background diffuse alpha
+                let diffuseBlended = Lerp background diffuse alpha
 
                 let numerator = ndf * g * kS
                 let denominator = 4.0 * nDotV * nDotL |> max 0.001
                 let specular = numerator / denominator  * radiance * nDotL
 
                 // add to outgoing radiance from single light
-                diffuseBlended //+ specular 
+                diffuseBlended + specular 
 
             else V3d.Zero
         oi
@@ -166,7 +166,7 @@ module shadersOIT =
                     let alpha = frag.c.W
                     let pos = (frag.pos.XYZ / frag.pos.W + V3d.III) * 0.5
                     let background = backgroundSampler.Sample(pos.XY).XYZ / uniform.LightPasses
-                    background//pBRLightning metallic roughness albedo n wPos alpha background
+                    pBRLightning metallic roughness albedo n wPos alpha background
 
             return V4d(col, 1.0)
         }
@@ -185,7 +185,7 @@ module shadersOIT =
         let brdf = samplerBRDFLtu.Sample(V2d(nDotV, roughness)).XY
         let specular = prefilteredColor * (kSA * brdf.X + brdf.Y) * ambientIntensity
 
-        let ambient = diffuseBlended //+ specular
+        let ambient = diffuseBlended + specular
         ambient 
 
     [<ReflectedDefinition>]
@@ -216,7 +216,7 @@ module shadersOIT =
                     let alpha = frag.c.W
                     let pos = (frag.pos.XYZ / frag.pos.W + V3d.III) * 0.5
                     let background = backgroundSampler.Sample(pos.XY).XYZ / uniform.LightPasses
-                    background//pBRAbient metallic roughness albedo n wPos alpha background
+                    pBRAbient metallic roughness albedo n wPos alpha background
 
             let occlusion = ambientOcc.Sample(frag.tc).X
 
