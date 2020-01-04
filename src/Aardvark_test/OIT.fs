@@ -26,6 +26,8 @@ module shadersOIT =
 
         member x.LightPasses : float =  x?LightPasses
 
+        member x.Test : IntImage1d<Formats.r16i> =  x?Test 
+
 
     let private metallicSampler =
         sampler2d {
@@ -102,6 +104,9 @@ module shadersOIT =
             let metallic = uniform.Metallic * metallicSampler.Sample(vert.tc).X
             let roughness = uniform.Roughness * roughnessSampler.Sample(vert.tc).X
 
+            let dist = uniform.Test
+
+            dist.AtomicMax(0,1) |> ignore
             return  {pos = vert.pos; wp =  vert.wp; n = vert.n; c = V4d(albedo,opacity);  tc = vert.tc; metallic = metallic; roughness = roughness}
         }
 
@@ -230,10 +235,13 @@ module shadersOIT =
 
     let compose (vert : Vertex)  =
         fragment {
+            let test = uniform.Test
+            let t = test.[0].X
             let background = backgroundSampler.Sample(vert.tc)
-            let foreground = foregroundSampler.Sample(vert.tc)
+            let foreground = if t < 1  then V4d.IOOI else foregroundSampler.Sample(vert.tc)
             let col = if foreground.W > 0.0 then foreground.XYZ else background.XYZ 
             let alpha = 1.0 - (1.0-background.W) * (1.0-foreground.W)
+          
             return V4d(col,alpha)
         }
     

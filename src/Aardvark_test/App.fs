@@ -223,11 +223,14 @@ module App =
 
         let ambientOcclusion = makeAmbientOcclusion runtime size view proj gBuffer m.enviorment.occlusionSettings
 
+        let test = runtime.CreateTexture(V2i(1,1),TextureFormat.R16i,1,1)
+        let tt =test.[TextureAspect.Color, 0, 0] |> Mod.constant
+
         let bb = //scene?GlobalBoundingBox() //not defined for Sg.set Todo: define semantics
             let seed = Box3d(V3d.OOO, V3d.OOO) |> Mod.constant
             let bounds (o : MSceneObject) =
                 adaptive{
-                    let! object  = sceneObject.object o
+                    let! object  = sceneObject.object  o
                     let! trans = sceneObject.trafo o
                     let bounds = object.bounds
                     return bounds.Transformed(trans)
@@ -413,6 +416,7 @@ module App =
             |> Sg.texture (Sym.ofString "Background") outputOpage
             |> Sg.texture ( DefaultSemantic.Depth) (Map.find DefaultSemantic.Depth gBuffer)
             |> Sg.uniform "LightPasses" (AMap.keys m.lights |> ASet.count |>  Mod.map ((+) 1))
+            |> Sg.uniform "Test" tt
             |> Sg.viewTrafo (view)
             |> Sg.projTrafo (proj)
             |> Sg.compile runtime signature
@@ -424,6 +428,7 @@ module App =
         |> Sg.texture (Sym.ofString "Background") outputOpage
         |> Sg.texture (Sym.ofString "Foreground") outputTransparent
         |> Sg.uniform "Expousure" m.expousure
+        |> Sg.uniform "Test" tt
         |> Sg.shader {
             do! shadersOIT.compose
             do! PBR.gammaCorrection
